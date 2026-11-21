@@ -1,0 +1,54 @@
+services:
+  rfb-regime-regular:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.rfb-java
+      args:
+        SERVICE_DIR: services/calculadora-rtc-regime-regular
+    depends_on:
+      - redis
+    environment:
+      SPRING_PROFILES_ACTIVE: offline
+    networks:
+      - fiscal_internal
+    restart: unless-stopped
+
+  rfb-simples-nacional:
+    build:
+      context: ..
+      dockerfile: infra/docker/Dockerfile.rfb-java
+      args:
+        SERVICE_DIR: services/calculadora-rtc-simples-nacional
+    depends_on:
+      - redis
+    environment:
+      SPRING_PROFILES_ACTIVE: offline
+    networks:
+      - fiscal_internal
+    restart: unless-stopped
+
+  rfb-gerador-danfse:
+    build:
+      context: ../services/calculadora-rtc-gerador-danfse
+      dockerfile: Dockerfile
+    depends_on:
+      - redis
+    networks:
+      - fiscal_internal
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command:
+      - redis-server
+      - --maxmemory
+      - 128mb
+      - --maxmemory-policy
+      - allkeys-lru
+    networks:
+      - fiscal_internal
+    restart: unless-stopped
+
+networks:
+  fiscal_internal:
+    internal: true

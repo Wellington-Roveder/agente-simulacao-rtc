@@ -1,12 +1,26 @@
-services/
-!services/
+# Estrutura de pastas vazias
 services/*
 !services/.gitkeep
+
+# Ambiente e Python
 .env
 .venv/
 __pycache__/
 .pytest_cache/
 .ruff_cache/
+
+# Frontend (Next.js)
 frontend/node_modules/
 frontend/.next/
+
+# Logs e dados
 *.jsonl
+logs/
+# Extras de segurança e sistema
+.env.*
+!.env.example
+*.db
+*.sqlite*
+frontend/out/
+.DS_Store
+Thumbs.db

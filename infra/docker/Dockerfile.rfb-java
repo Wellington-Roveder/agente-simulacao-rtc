@@ -1,0 +1,35 @@
+FROM maven:3.9-eclipse-temurin-21-alpine AS builder
+
+ARG SERVICE_DIR
+WORKDIR /build
+
+COPY ${SERVICE_DIR}/pom.xml ./pom.xml
+COPY ${SERVICE_DIR}/src ./src
+# Ambos os serviços utilizam o esquema unificado presente no repo regime-regular
+COPY services/calculadora-rtc-regime-regular/flyway ./flyway
+
+# 1. Gera o banco SQLite obrigatório para o perfil offline
+RUN mkdir -p ./calculadora/db && \
+    mvn -B flyway:migrate -Dflyway.configFiles=./flyway/flyway-pro.conf --errors
+
+# 2. Compila o JAR
+RUN mvn -B -DskipTests package
+
+FROM eclipse-temurin:21-jre-alpine
+
+RUN addgroup -S app && adduser -S -G app app
+WORKDIR /app
+
+# Copia o JAR e o banco SQLite gerado no estágio de build
+COPY --from=builder --chown=app:app /build/target/*.jar ./app.jar
+COPY --from=builder --chown=app:app /build/calculadora ./calculadora
+
+USER app
+
+ENV SPRING_PROFILES_ACTIVE=offline
+ENV SERVER_PORT=8080
+ENV TZ=America/Sao_Paulo
+
+EXPOSE 8080
+
+ENTRYPOINT ["java", "-Xms128m", "-Xmx384m", "-jar", "/app/app.jar"]
