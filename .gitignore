@@ -1,0 +1,12 @@
+services/
+!services/
+services/*
+!services/.gitkeep
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+frontend/node_modules/
+frontend/.next/
+*.jsonl
