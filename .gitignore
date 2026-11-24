@@ -24,3 +24,4 @@ logs/
 frontend/out/
 .DS_Store
 Thumbs.db
+*.egg-info/
