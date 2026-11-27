@@ -6,7 +6,11 @@ from openai import APIError, AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletionToolParam
 
 from app.core.config import Settings
-from app.core.errors import LLMProviderError, RFBClientError
+from app.core.errors import (
+    LLMProviderError,
+    RFBUnavailableError,
+    RFBValidationError,
+)
 from app.core.security import sanitize_pii
 from app.schemas.fiscal import OperacaoRegimeGeralInput, OperacaoSimplesInput
 from app.services.cache_service import CacheService
@@ -99,12 +103,14 @@ class FiscalOrchestratorAgent:
         max_tool_rounds: int = 4,
     ) -> None:
         self._model = settings.llm_model
+        self._max_history_messages = settings.max_history_messages
         self._rfb = rfb_client
         self._cache = cache_service
         self._router = semantic_router
         self._llm = openai_client or AsyncOpenAI(
-            api_key=settings.openai_api_key,
+            api_key=settings.openai_api_key.get_secret_value(),
             base_url=settings.openai_base_url,
+            timeout=settings.llm_timeout_seconds,
         )
         self._max_tool_rounds = max_tool_rounds
 
@@ -137,7 +143,7 @@ class FiscalOrchestratorAgent:
         for _ in range(self._max_tool_rounds):
             messages: list[ChatCompletionMessageParam] = [
                 {"role": "system", "content": _SYSTEM_PROMPT},
-                *history,
+                *history[-self._max_history_messages :],
             ]
             try:
                 completion = await self._llm.chat.completions.create(
@@ -146,6 +152,7 @@ class FiscalOrchestratorAgent:
                     tools=_TOOLS,
                     tool_choice="auto",
                     temperature=0.0,
+                    max_tokens=1024,
                 )
             except APIError as exc:
                 raise LLMProviderError("Falha na API do modelo de linguagem.") from exc
@@ -169,7 +176,25 @@ class FiscalOrchestratorAgent:
             for tool_call in assistant_msg.tool_calls:
                 fn_name = tool_call.function.name
                 raw_args = tool_call.function.arguments
-                tool_output = await self._execute_tool(fn_name, raw_args)
+                try:
+                    tool_output = await self._execute_tool(fn_name, raw_args)
+                except RFBUnavailableError:
+                    tool_executions.append(
+                        {
+                            "tool": fn_name,
+                            "output": {"erro_execucao": "Motor da RFB indisponível."},
+                        }
+                    )
+                    return AgentResponse(
+                        reply=(
+                            "O motor da Receita Federal está temporariamente "
+                            "indisponível. Tente novamente mais tarde."
+                        ),
+                        session_id=session_id,
+                        in_scope=True,
+                        pii_redacted_count=sanitized.redacted_count,
+                        tool_executions=tool_executions,
+                    )
                 tool_executions.append({"tool": fn_name, "output": tool_output})
 
                 history.append(
@@ -221,5 +246,5 @@ class FiscalOrchestratorAgent:
                 return {"fonte": "rfb_api", "atividades": atividades[:20]}
 
             return {"erro": f"Ferramenta desconhecida: {fn_name}"}
-        except (ValueError, RFBClientError) as exc:
+        except (ValueError, RFBValidationError) as exc:
             return {"erro_execucao": str(exc)}

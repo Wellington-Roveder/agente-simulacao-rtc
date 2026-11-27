@@ -44,6 +44,11 @@ def create_app() -> FastAPI:
         title=settings.app_name,
         version="0.1.0",
         lifespan=lifespan,
+        docs_url=None if settings.environment == "production" else "/docs",
+        redoc_url=None if settings.environment == "production" else "/redoc",
+        openapi_url=None
+        if settings.environment == "production"
+        else "/openapi.json",
     )
 
     register_error_handlers(app)

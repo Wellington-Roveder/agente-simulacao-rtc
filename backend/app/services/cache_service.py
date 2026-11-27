@@ -43,9 +43,7 @@ class CacheService:
                 return None
             return json.loads(raw.decode("utf-8"))
         except (RedisError, json.JSONDecodeError, UnicodeDecodeError) as exc:
-            raise CacheServiceError(
-                f"Falha ao recuperar sessão '{session_id}': {exc}"
-            ) from exc
+            raise CacheServiceError("Falha ao recuperar sessão.") from exc
 
     async def save_session(
         self, session_id: str, state: dict[str, Any], ttl_seconds: int | None = None
@@ -55,17 +53,13 @@ class CacheService:
             payload = json.dumps(state, ensure_ascii=False).encode("utf-8")
             await self._redis.set(self._session_key(session_id), payload, ex=ttl)
         except RedisError as exc:
-            raise CacheServiceError(
-                f"Falha ao salvar sessão '{session_id}': {exc}"
-            ) from exc
+            raise CacheServiceError("Falha ao salvar sessão.") from exc
 
     async def delete_session(self, session_id: str) -> None:
         try:
             await self._redis.delete(self._session_key(session_id))
         except RedisError as exc:
-            raise CacheServiceError(
-                f"Falha ao remover sessão '{session_id}': {exc}"
-            ) from exc
+            raise CacheServiceError("Falha ao remover sessão.") from exc
 
     # --- Cache de Tabelas Fiscais da RFB ---
 
@@ -99,13 +93,13 @@ class CacheService:
         try:
             await self._redis.set(self._danfse_key(token), pdf_bytes, ex=ttl_seconds)
         except RedisError as exc:
-            raise CacheServiceError(f"Falha ao armazenar PDF '{token}': {exc}") from exc
+            raise CacheServiceError("Falha ao armazenar PDF.") from exc
 
     async def get_danfse_pdf(self, token: str) -> bytes | None:
         try:
             return await self._redis.get(self._danfse_key(token))
         except RedisError as exc:
-            raise CacheServiceError(f"Falha ao recuperar PDF '{token}': {exc}") from exc
+            raise CacheServiceError("Falha ao recuperar PDF.") from exc
 
     async def close(self) -> None:
         await self._redis.aclose()

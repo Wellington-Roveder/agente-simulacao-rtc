@@ -1,11 +1,40 @@
 from unittest.mock import AsyncMock
 
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.v1.routes import get_agent, get_cache_service, get_rfb_client
+from app.core.config import Settings
 from app.core.errors import LLMProviderError
 from app.main import create_app
 from app.services.openai_agent import AgentResponse
+
+
+def test_production_app_disables_api_documentation(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.main.get_settings",
+        lambda: Settings(environment="production"),
+    )
+
+    app = create_app()
+
+    assert isinstance(app, FastAPI)
+    assert app.docs_url is None
+    assert app.redoc_url is None
+    assert app.openapi_url is None
+
+
+def test_nonproduction_app_keeps_api_documentation(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.main.get_settings",
+        lambda: Settings(environment="development"),
+    )
+
+    app = create_app()
+
+    assert app.docs_url == "/docs"
+    assert app.redoc_url == "/redoc"
+    assert app.openapi_url == "/openapi.json"
 
 
 def test_chat_endpoint_returns_agent_response() -> None:

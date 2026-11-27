@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import HttpUrl
+from pydantic import HttpUrl, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,9 +11,11 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # Provedor LLM (compatível com OpenAI, Groq ou Ollama local)
-    openai_api_key: str = "ollama-local"
+    openai_api_key: SecretStr = SecretStr("ollama-local")
     openai_base_url: str = "http://localhost:11434/v1"
     llm_model: str = "qwen2.5:7b"
+    llm_timeout_seconds: float = 20.0
+    max_history_messages: int = 12
 
     # Infraestrutura Interna Docker
     redis_url: str = "redis://localhost:6379/0"
