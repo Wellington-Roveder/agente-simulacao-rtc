@@ -9,6 +9,8 @@ services:
       - redis
     environment:
       SPRING_PROFILES_ACTIVE: offline
+    ports:
+      - "127.0.0.1:8081:8080"
     networks:
       - fiscal_internal
     restart: unless-stopped
@@ -23,6 +25,8 @@ services:
       - redis
     environment:
       SPRING_PROFILES_ACTIVE: offline
+    ports:
+      - "127.0.0.1:8082:8080"
     networks:
       - fiscal_internal
     restart: unless-stopped
@@ -33,6 +37,8 @@ services:
       dockerfile: Dockerfile
     depends_on:
       - redis
+    ports:
+      - "127.0.0.1:8083:8080"
     networks:
       - fiscal_internal
     restart: unless-stopped
@@ -45,10 +51,12 @@ services:
       - 128mb
       - --maxmemory-policy
       - allkeys-lru
+    ports:
+      - "127.0.0.1:6379:6379"
     networks:
       - fiscal_internal
     restart: unless-stopped
 
 networks:
   fiscal_internal:
-    internal: true
+    driver: bridge

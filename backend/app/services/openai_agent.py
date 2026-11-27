@@ -1,4 +1,5 @@
 import json
+import logging
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -16,6 +17,8 @@ from app.schemas.fiscal import OperacaoRegimeGeralInput, OperacaoSimplesInput
 from app.services.cache_service import CacheService
 from app.services.rfb_client import RFBFiscalClient
 from app.services.semantic_router import SemanticRouter
+
+logger = logging.getLogger(__name__)
 
 _SYSTEM_PROMPT = """
 Você é um assistente especialista na Reforma Tributária do Consumo do Brasil (LC 214/2025: CBS, IBS e Imposto Seletivo).
@@ -155,6 +158,12 @@ class FiscalOrchestratorAgent:
                     max_tokens=1024,
                 )
             except APIError as exc:
+                logger.warning(
+                    "Erro na chamada ao provedor LLM: %s - %s | Causa: %r",
+                    type(exc).__name__,
+                    exc,
+                    exc.__cause__,
+                )  # noqa: E501
                 raise LLMProviderError("Falha na API do modelo de linguagem.") from exc
             assistant_msg = completion.choices[0].message
 
