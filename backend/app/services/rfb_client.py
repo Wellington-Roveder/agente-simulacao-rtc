@@ -1,15 +1,12 @@
 import httpx
 
 from app.core.config import Settings
+from app.core.errors import RFBUnavailableError, RFBValidationError
 from app.schemas.fiscal import (
     OperacaoRegimeGeralInput,
     OperacaoSimplesInput,
     ResultadoObservabilidadeRFB,
 )
-
-
-class RFBClientError(Exception):
-    """Erro de comunicação ou resposta inesperada dos motores da Receita Federal."""
 
 
 class RFBFiscalClient:
@@ -36,11 +33,11 @@ class RFBFiscalClient:
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             try:
                 response = await client.get(url, params={"data": data_vigencia})
-                response.raise_for_status()
+                self._raise_for_rfb_status(response, "atividades_simples")
                 return response.json()
-            except httpx.HTTPError as exc:
-                raise RFBClientError(
-                    f"Falha ao consultar atividades SN: {exc}"
+            except httpx.RequestError as exc:
+                raise RFBUnavailableError(
+                    "Falha de rede ao consultar atividades SN."
                 ) from exc
 
     async def gerar_danfse_pdf(self, xml_nfse: str, canhoto: bool = True) -> bytes:
@@ -53,18 +50,32 @@ class RFBFiscalClient:
                     content=xml_nfse.encode("utf-8"),
                     headers={"Content-Type": "application/xml"},
                 )
-                response.raise_for_status()
+                self._raise_for_rfb_status(response, "gerador_danfse")
                 return response.content
-            except httpx.HTTPError as exc:
-                raise RFBClientError(f"Falha ao gerar PDF DANFSe: {exc}") from exc
+            except httpx.RequestError as exc:
+                raise RFBUnavailableError(
+                    "Falha de rede ao comunicar com gerador DANFSe."
+                ) from exc
 
     async def _post_calculo(self, url: str, body: dict) -> ResultadoObservabilidadeRFB:
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             try:
                 response = await client.post(url, json=body)
-                response.raise_for_status()
+                self._raise_for_rfb_status(response, "calculadora_rtc")
                 return ResultadoObservabilidadeRFB.model_validate(response.json())
-            except httpx.HTTPError as exc:
-                raise RFBClientError(
-                    f"Erro na comunicação com motor RFB ({url}): {exc}"
+            except httpx.RequestError as exc:
+                raise RFBUnavailableError(
+                    "Falha de rede ao comunicar com calculadora RFB."
                 ) from exc
+
+    @staticmethod
+    def _raise_for_rfb_status(response: httpx.Response, service_label: str) -> None:
+        if response.is_success:
+            return
+        if 400 <= response.status_code < 500:
+            raise RFBValidationError(
+                f"Entrada rejeitada pelo serviço {service_label} (HTTP {response.status_code})."  # noqa: E501
+            )
+        raise RFBUnavailableError(
+            f"Serviço {service_label} indisponível (HTTP {response.status_code})."
+        )

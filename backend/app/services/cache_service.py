@@ -5,10 +5,7 @@ from redis.asyncio import Redis, from_url
 from redis.exceptions import RedisError
 
 from app.core.config import Settings
-
-
-class CacheServiceError(Exception):
-    """Erro de comunicação ou operação com o servidor Redis."""
+from app.core.errors import CacheServiceError
 
 
 class CacheService:
@@ -112,3 +109,21 @@ class CacheService:
 
     async def close(self) -> None:
         await self._redis.aclose()
+
+    async def check_rate_limit(
+        self, identifier: str, max_requests: int, window_seconds: int
+    ) -> bool:
+        key = f"rtc:ratelimit:{identifier}"
+        try:
+            current = await self._redis.incr(key)
+            if current == 1:
+                await self._redis.expire(key, window_seconds)
+            return int(current) <= max_requests
+        except RedisError as exc:
+            raise CacheServiceError("Falha ao verificar limite de taxa.") from exc
+
+    async def ping(self) -> bool:
+        try:
+            return bool(await self._redis.ping())
+        except RedisError:
+            return False

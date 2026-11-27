@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     # Infraestrutura Interna Docker
     redis_url: str = "redis://localhost:6379/0"
     session_ttl_seconds: int = 900  # 15 minutos (minimização LGPD)
+    danfse_ttl_seconds: int = 600  # 10 minutos para download do PDF
+    rate_limit_requests: int = 20  # Máximo de requisições por janela
+    rate_limit_window_seconds: int = 60
 
     # Motores Oficiais da Receita Federal
     rfb_regular_url: HttpUrl = "http://localhost:8081/api"
