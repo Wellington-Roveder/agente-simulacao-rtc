@@ -62,7 +62,23 @@ async def test_save_and_get_danfse_pdf_bytes(
 async def test_redis_error_raises_cache_service_error(
     cache_service: CacheService, mock_redis: AsyncMock
 ) -> None:
-    mock_redis.get.side_effect = RedisError("Connection refused")
+    mock_redis.get.side_effect = RedisError("Connection refused sess-erro")
 
-    with pytest.raises(CacheServiceError, match="Falha ao recuperar sessão"):
+    with pytest.raises(
+        CacheServiceError, match="Falha ao recuperar sessão"
+    ) as exc_info:
         await cache_service.get_session("sess-erro")
+    assert "sess-erro" not in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_danfse_cache_errors_do_not_include_token(
+    cache_service: CacheService, mock_redis: AsyncMock
+) -> None:
+    mock_redis.set.side_effect = RedisError("Connection refused")
+    token = "sensitive-download-token"
+
+    with pytest.raises(CacheServiceError) as exc_info:
+        await cache_service.save_danfse_pdf(token, b"%PDF")
+
+    assert token not in str(exc_info.value)
